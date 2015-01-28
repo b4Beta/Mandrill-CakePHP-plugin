@@ -30,14 +30,18 @@ class MandrillTransport extends AbstractTransport {
      * @var mixed
      */
     protected $_recipients = array();
-
+	
+	
+	
     /**
      * Sends out email via Mandrill
      *
      * @return array
      */
-    public function send(CakeEmail $email) {
+	 
 
+    public function send(CakeEmail $email) {
+		
         // CakeEmail
         $this->_cakeEmail = $email;
 
@@ -45,7 +49,7 @@ class MandrillTransport extends AbstractTransport {
 
         $this->_headers = $this->_cakeEmail->getHeaders();
         $this->_recipients = $email->to();
-
+		Debugger::dump($this->_cakeEmail);
         $message = array(
             'html' => $this->_cakeEmail->message('html'),
             'text' => $this->_cakeEmail->message('text'),
@@ -67,8 +71,8 @@ class MandrillTransport extends AbstractTransport {
             'signing_domain' => null,
             'return_path_domain' => null,
             'merge' => true,
-            'tags' => $this->_headers['X-Tags'],
-            'subaccount' => $this->_headers['X-SubAccount'],
+            //'tags' => $this->_headers['X-Tags'],
+            //'subaccount' => $this->_headers['X-SubAccount'],
         );
 
         if (!empty($this->_headers['X-GlobalVars'])) {
@@ -117,14 +121,18 @@ class MandrillTransport extends AbstractTransport {
         }
 
         $params = array('message' => $message, "async" => false, "ip_pool" => null, "send_at" => null);
-
-        return $this->_exec($params);
+		$templateName = $this->_cakeEmail->mandrillTemplate();
+        return $this->_exec($params,$templateName);
     }
 
-    private function _exec($params) {
+    private function _exec($params, $templateName) {
         $params['key'] = $this->_config['api_key'];
+		$params['template_name'] = $templateName;
+		$params['template_content']=  array(array(
+			'name'		=>'not required',
+			'content'	=>'<h1>not required</h1>' 
+			));
         $params = json_encode($params);
-
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_USERAGENT, 'Mandrill-PHP/1.0.52');
         curl_setopt($ch, CURLOPT_POST, true);
@@ -137,7 +145,7 @@ class MandrillTransport extends AbstractTransport {
         curl_setopt($ch, CURLOPT_TIMEOUT, 600);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
-        curl_setopt($ch, CURLOPT_URL, 'https://mandrillapp.com/api/1.0/messages/send.json');
+        curl_setopt($ch, CURLOPT_URL, 'https://mandrillapp.com/api/1.0/messages/send-template.json');
         curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
         curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
         curl_setopt($ch, CURLOPT_VERBOSE, false);
@@ -150,7 +158,7 @@ class MandrillTransport extends AbstractTransport {
         $result = json_decode($response_body, true);
         if($result === null) throw new Exception('We were unable to decode the JSON response from the Mandrill API: ' . $response_body);
 
-        return $result;
+        return json_decode($response_body,true);
     }
 
 }
